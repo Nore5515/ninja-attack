@@ -70,7 +70,7 @@ struct PhysicsCategory {
 
 struct EnemyNoti {
   var enemyTarget : SKSpriteNode
-  var distanceTo : UInt32  // unusued
+  var distanceTo : CGFloat
   var eCube : EnemyCube
 //  var notificationCube: SKShapeNode
 }
@@ -146,13 +146,19 @@ class GameScene: SKScene {
     for enemy in enemyNotiArray{
       index = getIndexOfMonster(monster: enemy.enemyTarget, list: enemyNotiArray)
       if (index >= 0){
-        enemyNotiArray[index].eCube.line.removeFromParent()
+//        enemyNotiArray[index].eCube.line.removeFromParent()
         enemyNotiArray[index].eCube.cube.removeFromParent()
-        let (line, cube) = createLine(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position)
+        enemyNotiArray[index].distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyTarget.position)
+        let (line, cube) = createLine(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo)
         let enemyCube = EnemyCube(line: line, cube: cube)
         enemyNotiArray[index].eCube = enemyCube
       }
     }
+  }
+  
+  func distanceBetweenPoints(first: CGPoint, second: CGPoint) -> CGFloat{
+    //return hypotf(second.x - first.x, second.y - first.y);
+    return CGFloat(hypotf(Float(second.x - first.x), Float(second.y - first.y)));
   }
 
   func addMonster() {
@@ -185,9 +191,9 @@ class GameScene: SKScene {
       monster.position = CGPoint(x: size.width + monster.size.width/2, y: actualY)
     }
     
-    let (line, cube) = createLine(playerPosition: player.position, monsterPosition: monster.position)
+    let (line, cube) = createLine(playerPosition: player.position, monsterPosition: monster.position, distance: distanceBetweenPoints(first: player.position, second: monster.position) )
     let enemyCube = EnemyCube(line: line, cube: cube)
-    enemyNotiArray.append(EnemyNoti(enemyTarget: monster, distanceTo: 1, eCube: enemyCube))
+    enemyNotiArray.append(EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), eCube: enemyCube))
     if let killsLabel = killsLabel {
       killsLabel.text = String(enemyNotiArray.count)
     }
@@ -217,11 +223,18 @@ class GameScene: SKScene {
       print("OTHER WAY")
       let actionMove = SKAction.move(to: CGPoint(x: size.width + monster.size.width/2, y: cappedY),
                                      duration: TimeInterval(actualDuration))
-      let loseAction = SKAction.run() { [weak self] in
-        guard let `self` = self else { return }
-        let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
-        let gameOverScene = GameOverScene(size: self.size, won: false)
-        self.view?.presentScene(gameOverScene, transition: reveal)
+//      let loseAction = SKAction.run() { [weak self] in
+//        guard let `self` = self else { return }
+//        let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
+//        let gameOverScene = GameOverScene(size: self.size, won: false)
+//        self.view?.presentScene(gameOverScene, transition: reveal)
+      let loseAction = SKAction.run() {
+        let monsterIndex = self.getIndexOfMonster(monster: monster, list: self.enemyNotiArray)
+        if (monsterIndex >= 0){
+          self.enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
+          self.enemyNotiArray.remove(at: monsterIndex)
+        }
+        monster.removeFromParent()
       }
       monster.run(SKAction.sequence([actionMove, loseAction, actionMoveDone]))
 
@@ -229,11 +242,16 @@ class GameScene: SKScene {
     else{
       let actionMove = SKAction.move(to: CGPoint(x: -monster.size.width/2, y: actualY + yMod),
                                      duration: TimeInterval(actualDuration))
-      let loseAction = SKAction.run() { [weak self] in
-        guard let `self` = self else { return }
-        let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
-        let gameOverScene = GameOverScene(size: self.size, won: false)
-        self.view?.presentScene(gameOverScene, transition: reveal)
+      let loseAction = SKAction.run() {
+        let monsterIndex = self.getIndexOfMonster(monster: monster, list: self.enemyNotiArray)
+        if (monsterIndex >= 0){
+          self.enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
+          self.enemyNotiArray.remove(at: monsterIndex)
+        }
+        monster.removeFromParent()
+//        let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
+//        let gameOverScene = GameOverScene(size: self.size, won: false)
+//        self.view?.presentScene(gameOverScene, transition: reveal)
       }
       monster.run(SKAction.sequence([actionMove, loseAction, actionMoveDone]))
 
@@ -290,7 +308,7 @@ class GameScene: SKScene {
     projectile.removeFromParent()
     let monsterIndex = getIndexOfMonster(monster: monster, list: enemyNotiArray)
     if (monsterIndex >= 0){
-      enemyNotiArray[monsterIndex].eCube.line.removeFromParent();
+//      enemyNotiArray[monsterIndex].eCube.line.removeFromParent();
       enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
       enemyNotiArray.remove(at: monsterIndex)
     }
@@ -314,7 +332,7 @@ class GameScene: SKScene {
     return -1
   }
   
-  func createLine(playerPosition: CGPoint, monsterPosition: CGPoint) -> (shape: SKShapeNode, cube: SKShapeNode){
+  func createLine(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat) -> (shape: SKShapeNode, cube: SKShapeNode){
     // Get direction
     var direction = monsterPosition - playerPosition
     
@@ -331,20 +349,24 @@ class GameScene: SKScene {
     line_path.addLine(to: playerPosition + direction)
     
     // Add cube!
-    var cube = placeCube(cubePoint: playerPosition + direction)
+    var cube = placeCube(cubePoint: playerPosition + direction, distance: distance)
     
     let shape = SKShapeNode()
     shape.path = line_path
     shape.strokeColor = UIColor.red
     shape.lineWidth = 2
     
-    addChild(shape)
+//    addChild(shape)
     
     return (shape, cube)
   }
   
-  func placeCube(cubePoint: CGPoint) -> SKShapeNode{
-    var barra = SKShapeNode(rectOf: CGSize(width: 15, height: 15))
+  func placeCube(cubePoint: CGPoint, distance: CGFloat) -> SKShapeNode{
+    var size = 15*(100/distance)
+    if (size > 40){
+      size = 40
+    }
+    var barra = SKShapeNode(rectOf: CGSize(width: size, height: size))
     barra.name = "bar"
     barra.fillColor = SKColor.red
     barra.position = cubePoint
