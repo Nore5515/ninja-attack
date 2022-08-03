@@ -71,21 +71,13 @@ struct PhysicsCategory {
 struct EnemyNoti {
   var enemyTarget : SKSpriteNode
   var distanceTo : UInt32  // unusued
+  var eCube : EnemyCube
+//  var notificationCube: SKShapeNode
+}
+
+struct EnemyCube{
   var line : SKShapeNode
-  
-  func updateLine() -> Void{
-    if let path = line.path {
-      if let mutablePath = path.mutableCopy() {
-        mutablePath.addLine(to: CGPoint(x:enemyTarget.position.x, y:enemyTarget.position.y))
-        
-        let shape = SKShapeNode()
-        shape.path = mutablePath
-        shape.strokeColor = UIColor.red
-        shape.lineWidth = 2
-      }
-      
-    }
-  }
+  var cube : SKShapeNode
 }
 
 
@@ -154,8 +146,11 @@ class GameScene: SKScene {
     for enemy in enemyNotiArray{
       index = getIndexOfMonster(monster: enemy.enemyTarget, list: enemyNotiArray)
       if (index >= 0){
-        enemyNotiArray[index].line.removeFromParent()
-        enemyNotiArray[index].line = createLine(x1: player.position.x, y1: player.position.y, x2: enemy.enemyTarget.position.x, y2: enemy.enemyTarget.position.y)
+        enemyNotiArray[index].eCube.line.removeFromParent()
+        enemyNotiArray[index].eCube.cube.removeFromParent()
+        let (line, cube) = createLine(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position)
+        let enemyCube = EnemyCube(line: line, cube: cube)
+        enemyNotiArray[index].eCube = enemyCube
       }
     }
   }
@@ -190,7 +185,9 @@ class GameScene: SKScene {
       monster.position = CGPoint(x: size.width + monster.size.width/2, y: actualY)
     }
     
-    enemyNotiArray.append(EnemyNoti(enemyTarget: monster, distanceTo: 1, line: createLine(x1: player.position.x, y1: player.position.y, x2: monster.position.x, y2: monster.position.y)))
+    let (line, cube) = createLine(playerPosition: player.position, monsterPosition: monster.position)
+    let enemyCube = EnemyCube(line: line, cube: cube)
+    enemyNotiArray.append(EnemyNoti(enemyTarget: monster, distanceTo: 1, eCube: enemyCube))
     if let killsLabel = killsLabel {
       killsLabel.text = String(enemyNotiArray.count)
     }
@@ -293,6 +290,8 @@ class GameScene: SKScene {
     projectile.removeFromParent()
     let monsterIndex = getIndexOfMonster(monster: monster, list: enemyNotiArray)
     if (monsterIndex >= 0){
+      enemyNotiArray[monsterIndex].eCube.line.removeFromParent();
+      enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
       enemyNotiArray.remove(at: monsterIndex)
     }
     if let killsLabel = killsLabel {
@@ -315,10 +314,24 @@ class GameScene: SKScene {
     return -1
   }
   
-  func createLine(x1: CGFloat, y1: CGFloat, x2: CGFloat, y2: CGFloat) -> SKShapeNode{
+  func createLine(playerPosition: CGPoint, monsterPosition: CGPoint) -> (shape: SKShapeNode, cube: SKShapeNode){
+    // Get direction
+    var direction = monsterPosition - playerPosition
+    
+    // Normalize direction to one length
+    direction = direction.normalized()
+    // Make direction exactly 50 length
+    direction = direction * 50
+    
+    // Initialize a mutable path
     let line_path:CGMutablePath = CGMutablePath()
-    line_path.move(to: CGPoint(x:x1, y:y1))
-    line_path.addLine(to: CGPoint(x:x2, y:y2))
+    // Start the path at the player
+    line_path.move(to: playerPosition)
+    // Point it towards target FROM player, exactly 50 length
+    line_path.addLine(to: playerPosition + direction)
+    
+    // Add cube!
+    var cube = placeCube(cubePoint: playerPosition + direction)
     
     let shape = SKShapeNode()
     shape.path = line_path
@@ -327,7 +340,17 @@ class GameScene: SKScene {
     
     addChild(shape)
     
-    return shape
+    return (shape, cube)
+  }
+  
+  func placeCube(cubePoint: CGPoint) -> SKShapeNode{
+    var barra = SKShapeNode(rectOf: CGSize(width: 15, height: 15))
+    barra.name = "bar"
+    barra.fillColor = SKColor.red
+    barra.position = cubePoint
+
+    self.addChild(barra)
+    return barra
   }
 
     
