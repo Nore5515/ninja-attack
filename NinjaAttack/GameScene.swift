@@ -366,6 +366,7 @@ class GameScene: SKScene {
     if (size > 40){
       size = 40
     }
+    
     var barra = SKShapeNode(rectOf: CGSize(width: size, height: size))
     barra.name = "bar"
     barra.fillColor = SKColor.red
