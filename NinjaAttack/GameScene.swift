@@ -26,7 +26,19 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 /// THE SOFTWARE.
 
+// Imports
+
 import SpriteKit
+
+//
+//   ╔══════════════════════════════════════════════╗
+// ╔══════════════════════════════════════════════════╗
+// ║                                                  ║
+// ║  VECTOR MATH FUNCTIONS                           ║
+// ║                                                  ║
+// ╚══════════════════════════════════════════════════╝
+//   ╚══════════════════════════════════════════════╝
+//
 
 func +(left: CGPoint, right: CGPoint) -> CGPoint {
   return CGPoint(x: left.x + right.x, y: left.y + right.y)
@@ -60,19 +72,27 @@ extension CGPoint {
   }
 }
 
+//
+//   ╔══════════════════════════════════════════════╗
+// ╔══════════════════════════════════════════════════╗
+// ║                                                  ║
+// ║  STRUCTS                                         ║
+// ║                                                  ║
+// ╚══════════════════════════════════════════════════╝
+//   ╚══════════════════════════════════════════════╝
+//
 
 struct PhysicsCategory {
   static let none      : UInt32 = 0
   static let all       : UInt32 = UInt32.max
-  static let monster   : UInt32 = 0b1       // 1
-  static let projectile: UInt32 = 0b10      // 2
+  static let monster   : UInt32 = 0b1
+  static let projectile: UInt32 = 0b10
 }
 
 struct EnemyNoti {
   var enemyTarget : SKSpriteNode
   var distanceTo : CGFloat
   var eCube : EnemyCube
-//  var notificationCube: SKShapeNode
 }
 
 struct EnemyCube{
@@ -80,19 +100,30 @@ struct EnemyCube{
   var cube : SKShapeNode
 }
 
-
+//
+//   ╔══════════════════════════════════════════════╗
+// ╔══════════════════════════════════════════════════╗
+// ║                                                  ║
+// ║  MAIN SCENE                                      ║
+// ║                                                  ║
+// ╚══════════════════════════════════════════════════╝
+//   ╚══════════════════════════════════════════════╝
+//
 
 class GameScene: SKScene {
-  // 1
-  let player = SKSpriteNode(imageNamed: "player")
-  var kills = 0
-  var noLefts : UInt32 = 0
   
-  var enemyNotiArray: [EnemyNoti] = []
-  
-  
+  // Variable Initialization
+  private let player : SKSpriteNode = SKSpriteNode(imageNamed: "player")
+  private var kills : UInt32 = 0
+  private var noLefts : UInt32 = 0    // Tracks number of enemies between left-spawned enemies.
+  private var enemyNotiArray: [EnemyNoti] = []
   private var killsLabel : SKLabelNode?
     
+  //
+  //   ╔══════════════════════════════════════════════╗
+  //   ║  Effectively Init Func                       ║
+  //   ╚══════════════════════════════════════════════╝
+  //
   override func didMove(to view: SKView) {
     
     backgroundColor = SKColor.white
@@ -107,12 +138,8 @@ class GameScene: SKScene {
     if let killsLabel = killsLabel {
       self.addChild(killsLabel)
     }
-    
-    // 2
-    
-    // 3
+
     player.position = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
-    // 4
     addChild(player)
     
     physicsWorld.gravity = .zero
