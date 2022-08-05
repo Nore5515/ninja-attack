@@ -97,11 +97,6 @@ struct PhysicsCategory {
 struct EnemyNoti {
   var enemyTarget : SKSpriteNode
   var distanceTo : CGFloat
-  var eCube : EnemyCube
-}
-
-struct EnemyCube{
-  var line : SKShapeNode
   var cube : SKShapeNode
 }
 
@@ -199,16 +194,16 @@ class GameScene: SKScene {
     for enemy in enemyNotiArray{
       index = getIndexOfMonster(monster: enemy.enemyTarget, list: enemyNotiArray)
       if (index >= 0){
-        // Removes the cube and line from the parent.
-        enemyNotiArray[index].eCube.cube.removeFromParent()
-        enemyNotiArray[index].eCube.line.removeFromParent()
-        // Calculates the new distance from player to monster.
-        enemyNotiArray[index].distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyTarget.position)
-        // Creates a new line and cube.
-        let (line, cube) = createLine(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo)
-        // Creates a new EnemyCube with the new line and cube, then reassigns the enemyNoti's eCube.
-        let enemyCube = EnemyCube(line: line, cube: cube)
-        enemyNotiArray[index].eCube = enemyCube
+        updateCube(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo, cube: enemyNotiArray[index].cube)
+        
+//        // Removes the cube from the parent.
+//        enemyNotiArray[index].cube.removeFromParent()
+//        // Calculates the new distance from player to monster.
+//        enemyNotiArray[index].distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyTarget.position)
+//        // Creates a new cube.
+//        let cube = createCube(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo)
+//        // Reassigns the enemyNoti's cube.
+//        enemyNotiArray[index].cube = cube
       }
     }
   }
@@ -249,9 +244,8 @@ class GameScene: SKScene {
     }
     
     // Create and add new EnemyNoti
-    let (line, cube) = createLine(playerPosition: player.position, monsterPosition: monster.position, distance: distanceBetweenPoints(first: player.position, second: monster.position) )
-    let enemyCube = EnemyCube(line: line, cube: cube)
-    enemyNotiArray.append(EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), eCube: enemyCube))
+    let cube = createCube(playerPosition: player.position, monsterPosition: monster.position, distance: distanceBetweenPoints(first: player.position, second: monster.position) )
+    enemyNotiArray.append(EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), cube: cube))
     
     // Update enemy count
     if let killsLabel = killsLabel {
@@ -278,11 +272,7 @@ class GameScene: SKScene {
       cappedY = monster.size.width/2
     }
     
-    //
-    //   ╔══════════════════════════════════════════════╗
-    //   ║  Create monster actions.                     ║
-    //   ╚══════════════════════════════════════════════╝
-    //
+    // Create monster actions.
     let actionMove, loseAction, actionMoveDone : SKAction
     
     // Custom Move action if opposite moving.
@@ -301,7 +291,7 @@ class GameScene: SKScene {
     loseAction = SKAction.run() {
       let monsterIndex = self.getIndexOfMonster(monster: monster, list: self.enemyNotiArray)
       if (monsterIndex >= 0){
-        self.enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
+        self.enemyNotiArray[monsterIndex].cube.removeFromParent();
         self.enemyNotiArray.remove(at: monsterIndex)
       }
       monster.removeFromParent()
@@ -372,10 +362,9 @@ class GameScene: SKScene {
     
     // If monster is within enemyNotiArray...
     let monsterIndex = getIndexOfMonster(monster: monster, list: enemyNotiArray)
-    // Remove it's line, cube and the monster itself.
+    // Remove it's cube and the monster itself.
     if (monsterIndex >= 0){
-      enemyNotiArray[monsterIndex].eCube.line.removeFromParent();
-      enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
+      enemyNotiArray[monsterIndex].cube.removeFromParent();
       enemyNotiArray.remove(at: monsterIndex)
     }
     
@@ -410,11 +399,11 @@ class GameScene: SKScene {
   }
   
   //
-  //   ╔════════════════════════════════════════════════════════════════════════╗
-  //   ║  Return the line from player to monster, as well as the noti cube.     ║
-  //   ╚════════════════════════════════════════════════════════════════════════╝
+  //   ╔════════════════════════════════════════════════╗
+  //   ║  Return the noticube from player to monster.   ║
+  //   ╚════════════════════════════════════════════════╝
   //
-  func createLine(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat) -> (shape: SKShapeNode, cube: SKShapeNode){
+  func createCube(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat) -> SKShapeNode{
     
     // Get direction
     var direction = monsterPosition - playerPosition
@@ -424,23 +413,30 @@ class GameScene: SKScene {
     // Make direction exactly 50 length
     direction = direction * 50
     
-    // Initialize a mutable path
-    let line_path:CGMutablePath = CGMutablePath()
-    // Start the path at the player
-    line_path.move(to: playerPosition)
-    // Point it towards target FROM player, exactly 50 length
-    line_path.addLine(to: playerPosition + direction)
+    // Add cube!
+    let cube = placeCube(cubePoint: playerPosition + direction, distance: distance, maxSize: 30)
+    
+    return (cube)
+  }
+  
+  //
+  //   ╔═══════════════════════════════════════════════════════╗
+  //   ║  Updates the given cube to the new position/size.     ║
+  //   ╚═══════════════════════════════════════════════════════╝
+  //
+  func updateCube(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat, cube: SKShapeNode){
+    
+    // Get direction
+    var direction = monsterPosition - playerPosition
+    
+    // Normalize direction to one length
+    direction = direction.normalized()
+    // Make direction exactly 50 length
+    direction = direction * 50
     
     // Add cube!
-    var cube = placeCube(cubePoint: playerPosition + direction, distance: distance, maxSize: 30)
-    
-    // Create Line! (TODO: REMOVE ???)
-    let shape = SKShapeNode()
-    shape.path = line_path
-    shape.strokeColor = UIColor.red
-    shape.lineWidth = 2
-    
-    return (shape, cube)
+    let cubePoint = playerPosition + direction
+    updateCube(cubePoint: cubePoint, distance: distance, maxSize: 30, cube: cube)
   }
   
   //
@@ -466,7 +462,26 @@ class GameScene: SKScene {
     self.addChild(cube)
     return cube
   }
+  
+  //
+  //   ╔═════════════════════════════════════════════╗
+  //   ║  Updates the notification cube.             ║
+  //   ╚═════════════════════════════════════════════╝
+  //
+  func updateCube(cubePoint: CGPoint, distance: CGFloat, maxSize: CGFloat, cube: SKShapeNode){
     
+    // Create the size of the cube based on distance.
+    var size = 15*(100/distance)
+    // Cap cube size.
+    if (size > maxSize){
+      size = maxSize
+    }
+    
+    // Update cube!
+    cube.position = cubePoint
+    cube.xScale = size
+    cube.yScale = size
+  }
 }
 
 
