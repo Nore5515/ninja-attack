@@ -237,15 +237,6 @@ class GameScene: SKScene {
     var leftSpawn = random(min: 0.0, max: 15.0 + CGFloat(noLefts))
     leftSpawn = round(leftSpawn)
     
-    // Spawn 'rangers' 1 in 20 times.
-    var rangerSpawn = random(min: 0.0, max: 20.0)
-    rangerSpawn = round(leftSpawn)
-    
-    // If Ranger...
-    if (rangerSpawn >= 19.0){
-      
-    }
-    
     // Position the monster slightly off-screen along the right edge,
     // and along a random position along the Y axis as calculated above
     if (leftSpawn >= 15.0){
@@ -261,8 +252,21 @@ class GameScene: SKScene {
     let cube = createCube(playerPosition: player.position, monsterPosition: monster.position, distance: distanceBetweenPoints(first: player.position, second: monster.position) )
     let eNoti = EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), cube: cube)
     
-    // Creates and adds enemy object
-    let enemyObj = Enemy(enemyNoti: eNoti, leftFacing: false, ranger: false, sightRadius: -1, dangerCloseRadius: -1)
+    // Creates an enemy object
+    var enemyObj = Enemy(enemyNoti: eNoti, leftFacing: false, ranger: false, sightRadius: -1, dangerCloseRadius: -1)
+   
+    // Spawn 'rangers' 1 in 20 times.
+    var rangerSpawn = random(min: 0.0, max: 20.0)
+    rangerSpawn = round(leftSpawn)
+    
+    // If Ranger...
+    if (rangerSpawn >= 19.0){
+      enemyObj.ranger = true
+      enemyObj.sightRadius = 100
+      enemyObj.dangerCloseRadius = 50
+    }
+    
+    // Adds enemy obj to array.
     enemyArray.append(enemyObj)
     
     // Update enemy count
@@ -291,13 +295,21 @@ class GameScene: SKScene {
     }
     
     // Create monster actions.
-    let actionMove, loseAction, actionMoveDone : SKAction
+    let actionMove, loseAction : SKAction
     
-    // Custom Move action if opposite moving.
-    if (leftSpawn >= 15.0){
+    // Custom Move action if opposite moving (and not ranger.
+    if (leftSpawn >= 15.0 && !enemyObj.ranger){
       print("OTHER WAY")
       actionMove = SKAction.move(to: CGPoint(x: size.width + monster.size.width/2, y: cappedY),
                                      duration: TimeInterval(actualDuration))
+    }
+    // Custom Move action if ranger.
+    else if (enemyObj.ranger){
+      print("RANGER")
+      actionMove = SKAction.move(to: moveCloseToPlayer(playerPos: player.position, startingPos: monster.position, buffer: 100), duration: TimeInterval(actualDuration))
+      if (distanceBetweenPoints(first: player.position, second: monster.position) < 100){
+        print ("Gotcha!")
+      }
     }
     // Regular move action of correct moving.
     else{
@@ -315,11 +327,38 @@ class GameScene: SKScene {
       monster.removeFromParent()
     }
     
-    // Action to do when movement is over.
+    // Action to do when movement is over
     actionMoveDone = SKAction.removeFromParent()
     
-    // Add actions to monster!
-    monster.run(SKAction.sequence([actionMove, loseAction, actionMoveDone]))
+    // Add actions to monster (if not ranger)!
+    if (!enemyObj.ranger){
+      monster.run(SKAction.sequence([actionMove, loseAction]))
+    }
+    // Rangers should just idle after reaching dest.
+    else{
+      monster.run(SKAction.sequence([actionMove]))
+    }
+    
+  }
+  
+  //
+  //   ╔═════════════════════════════════════════════════════════════════════╗
+  //   ║  Get point from monster to player, ending 100 away from player.     ║
+  //   ╚═════════════════════════════════════════════════════════════════════╝
+  //
+  func moveCloseToPlayer(playerPos: CGPoint, startingPos: CGPoint, buffer: CGFloat) -> CGPoint{
+    // Get direction
+    var direction = playerPos - startingPos
+    // Get Distance
+    let distance = distanceBetweenPoints(first: playerPos, second: startingPos)
+    
+    // Normalize direction to one length
+    direction = direction.normalized()
+    // Make direction be exactly distance-buffer length
+    direction = direction * (distance-buffer)
+    
+    // Return startingPos + direction!
+    return startingPos + direction
   }
   
   //
