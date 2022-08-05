@@ -194,7 +194,12 @@ class GameScene: SKScene {
     for enemy in enemyNotiArray{
       index = getIndexOfMonster(monster: enemy.enemyTarget, list: enemyNotiArray)
       if (index >= 0){
-        updateCube(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo, cube: enemyNotiArray[index].cube)
+
+        // Calculates the new distance from player to monster.
+        enemyNotiArray[index].distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyTarget.position)
+
+        // Updates cube with new distance/position.
+        updateCubeHandler(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo, cube: enemyNotiArray[index].cube)
         
 //        // Removes the cube from the parent.
 //        enemyNotiArray[index].cube.removeFromParent()
@@ -414,7 +419,7 @@ class GameScene: SKScene {
     direction = direction * 50
     
     // Add cube!
-    let cube = placeCube(cubePoint: playerPosition + direction, distance: distance, maxSize: 30)
+    let cube = placeCube(cubePoint: playerPosition + direction, distance: distance, maxSize: 10)
     
     return (cube)
   }
@@ -424,7 +429,7 @@ class GameScene: SKScene {
   //   ║  Updates the given cube to the new position/size.     ║
   //   ╚═══════════════════════════════════════════════════════╝
   //
-  func updateCube(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat, cube: SKShapeNode){
+  func updateCubeHandler(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat, cube: SKShapeNode){
     
     // Get direction
     var direction = monsterPosition - playerPosition
@@ -436,7 +441,7 @@ class GameScene: SKScene {
     
     // Add cube!
     let cubePoint = playerPosition + direction
-    updateCube(cubePoint: cubePoint, distance: distance, maxSize: 30, cube: cube)
+    updateCube(cubePoint: cubePoint, distance: distance, maxSize: 10, cube: cube)
   }
   
   //
@@ -479,8 +484,8 @@ class GameScene: SKScene {
     
     // Update cube!
     cube.position = cubePoint
-    cube.xScale = size
-    cube.yScale = size
+    cube.setScale(size)
+    cube.fillColor = SKColor.red
   }
 }
 
