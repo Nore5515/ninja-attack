@@ -56,6 +56,11 @@ func /(point: CGPoint, scalar: CGFloat) -> CGPoint {
   return CGPoint(x: point.x / scalar, y: point.y / scalar)
 }
 
+func distanceBetweenPoints(first: CGPoint, second: CGPoint) -> CGFloat{
+  //return hypotf(second.x - first.x, second.y - first.y);
+  return CGFloat(hypotf(Float(second.x - first.x), Float(second.y - first.y)));
+}
+
 #if !(arch(x86_64) || arch(arm64))
   func sqrt(a: CGFloat) -> CGFloat {
     return CGFloat(sqrtf(Float(a)))
@@ -121,36 +126,44 @@ class GameScene: SKScene {
     
   //
   //   ╔══════════════════════════════════════════════╗
-  //   ║  Effectively Init Func                       ║
+  //   ║  Effectively the Init Func                   ║
   //   ╚══════════════════════════════════════════════╝
   //
   override func didMove(to view: SKView) {
     
     backgroundColor = SKColor.white
     
-    let killsLabel2 = SKLabelNode(fontNamed:"Times New Roman")
-    killsLabel2.fontColor = UIColor.black
-    killsLabel2.text = String(kills)
-    killsLabel2.fontSize = 14
-  
-    killsLabel2.position = CGPoint(x:size.width * 0.4, y:size.height * 0.4)
-    self.killsLabel = killsLabel2
-    if let killsLabel = killsLabel {
+    // Initialize kills label.
+    let killsLabel = SKLabelNode(fontNamed:"Times New Roman")
+    killsLabel.fontColor = UIColor.black
+    killsLabel.text = String(kills)
+    killsLabel.fontSize = 14
+    killsLabel.position = CGPoint(x:size.width * 0.4, y:size.height * 0.4)
+    
+    // Saves kills label to class variable.
+    self.killsLabel = killsLabel
+    // Adds kills label to scene.
+    if let killsLabel = self.killsLabel {
       self.addChild(killsLabel)
     }
 
+    // Set player's position and add to scene.
     player.position = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
     addChild(player)
     
+    // Set world physics.
     physicsWorld.gravity = .zero
     physicsWorld.contactDelegate = self
     
+    // Repeating call to add monster.
     run(SKAction.repeatForever(
           SKAction.sequence([
             SKAction.run(addMonster),
             SKAction.wait(forDuration: 1.0)
             ])
         ))
+    
+    // Repeating call to redraw lines.
     run(SKAction.repeatForever(
           SKAction.sequence([
             SKAction.run(redrawLines),
@@ -160,50 +173,67 @@ class GameScene: SKScene {
 
   }
   
+  //
+  //   ╔══════════════════════════════════════════════╗
+  //   ║  RNG Funcs.                                  ║
+  //   ╚══════════════════════════════════════════════╝
+  //
+  
+  // Get a random float value between 0 and 1.
   func random() -> CGFloat {
     return CGFloat(Float(arc4random()) / 0xFFFFFFFF)
   }
 
+  // Get a random float value between two given values.
   func random(min: CGFloat, max: CGFloat) -> CGFloat {
-    return random() * (max - min) + min
+    return (random() * (max - min)) + min
   }
   
+  //
+  //   ╔══════════════════════════════════════════════╗
+  //   ║  Redraw notification cubes.                  ║
+  //   ╚══════════════════════════════════════════════╝
+  //
   func redrawLines(){
     var index = -1
     for enemy in enemyNotiArray{
       index = getIndexOfMonster(monster: enemy.enemyTarget, list: enemyNotiArray)
       if (index >= 0){
-//        enemyNotiArray[index].eCube.line.removeFromParent()
+        // Removes the cube and line from the parent.
         enemyNotiArray[index].eCube.cube.removeFromParent()
+        enemyNotiArray[index].eCube.line.removeFromParent()
+        // Calculates the new distance from player to monster.
         enemyNotiArray[index].distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyTarget.position)
+        // Creates a new line and cube.
         let (line, cube) = createLine(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo)
+        // Creates a new EnemyCube with the new line and cube, then reassigns the enemyNoti's eCube.
         let enemyCube = EnemyCube(line: line, cube: cube)
         enemyNotiArray[index].eCube = enemyCube
       }
     }
   }
   
-  func distanceBetweenPoints(first: CGPoint, second: CGPoint) -> CGFloat{
-    //return hypotf(second.x - first.x, second.y - first.y);
-    return CGFloat(hypotf(Float(second.x - first.x), Float(second.y - first.y)));
-  }
-
+  //
+  //   ╔══════════════════════════════════════════════╗
+  //   ║  Add monster function.                       ║
+  //   ╚══════════════════════════════════════════════╝
+  //
   func addMonster() {
     
     // Create sprite
     let monster = SKSpriteNode(imageNamed: "monster")
     
-    monster.physicsBody = SKPhysicsBody(rectangleOf: monster.size) // 1
-    monster.physicsBody?.isDynamic = true // 2
-    monster.physicsBody?.categoryBitMask = PhysicsCategory.monster // 3
-    monster.physicsBody?.contactTestBitMask = PhysicsCategory.projectile // 4
-    monster.physicsBody?.collisionBitMask = PhysicsCategory.none // 5
+    // Assigns physics for the monster.
+    monster.physicsBody = SKPhysicsBody(rectangleOf: monster.size)
+    monster.physicsBody?.isDynamic = true
+    monster.physicsBody?.categoryBitMask = PhysicsCategory.monster
+    monster.physicsBody?.contactTestBitMask = PhysicsCategory.projectile
+    monster.physicsBody?.collisionBitMask = PhysicsCategory.none
 
-    
     // Determine where to spawn the monster along the Y axis
     let actualY = random(min: monster.size.height/2, max: size.height - monster.size.height/2)
     
-    // Spawn monster on left 1 in 15 times, odds increasing the longer you go without one.
+    // Spawn monster on left 1 in 15 times, odds increasing the longer you go without a left spawning monster.
     var leftSpawn = random(min: 0.0, max: 15.0 + CGFloat(noLefts))
     leftSpawn = round(leftSpawn)
     
@@ -218,9 +248,12 @@ class GameScene: SKScene {
       monster.position = CGPoint(x: size.width + monster.size.width/2, y: actualY)
     }
     
+    // Create and add new EnemyNoti
     let (line, cube) = createLine(playerPosition: player.position, monsterPosition: monster.position, distance: distanceBetweenPoints(first: player.position, second: monster.position) )
     let enemyCube = EnemyCube(line: line, cube: cube)
     enemyNotiArray.append(EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), eCube: enemyCube))
+    
+    // Update enemy count
     if let killsLabel = killsLabel {
       killsLabel.text = String(enemyNotiArray.count)
     }
@@ -232,70 +265,72 @@ class GameScene: SKScene {
     let actualDuration = random(min: CGFloat(1.5), max: CGFloat(10.0))
     
     // Add angle variance
-    let yMod = random(min: CGFloat(-150.0), max: CGFloat(150.0))
+    let yMod = random(min: CGFloat(-60.0), max: CGFloat(60.0))
     
     // Cap the destination to the screen size.
     var cappedY = actualY + yMod
-    if (cappedY > size.height){
+    // If it's destination is larger than the top of the screen...
+    if (cappedY > (size.height-monster.size.width/2)){
       cappedY = size.height - monster.size.width/2
     }
-    if (cappedY < 0){
+    // ...or the bottom...
+    if (cappedY < (monster.size.width/2)){
       cappedY = monster.size.width/2
     }
     
+    //
+    //   ╔══════════════════════════════════════════════╗
+    //   ║  Create monster actions.                     ║
+    //   ╚══════════════════════════════════════════════╝
+    //
+    let actionMove, loseAction, actionMoveDone : SKAction
     
-    // Create the actions
-    let actionMoveDone = SKAction.removeFromParent()
+    // Custom Move action if opposite moving.
     if (leftSpawn >= 15.0){
       print("OTHER WAY")
-      let actionMove = SKAction.move(to: CGPoint(x: size.width + monster.size.width/2, y: cappedY),
+      actionMove = SKAction.move(to: CGPoint(x: size.width + monster.size.width/2, y: cappedY),
                                      duration: TimeInterval(actualDuration))
-//      let loseAction = SKAction.run() { [weak self] in
-//        guard let `self` = self else { return }
-//        let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
-//        let gameOverScene = GameOverScene(size: self.size, won: false)
-//        self.view?.presentScene(gameOverScene, transition: reveal)
-      let loseAction = SKAction.run() {
-        let monsterIndex = self.getIndexOfMonster(monster: monster, list: self.enemyNotiArray)
-        if (monsterIndex >= 0){
-          self.enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
-          self.enemyNotiArray.remove(at: monsterIndex)
-        }
-        monster.removeFromParent()
-      }
-      monster.run(SKAction.sequence([actionMove, loseAction, actionMoveDone]))
-
     }
+    // Regular move action of correct moving.
     else{
-      let actionMove = SKAction.move(to: CGPoint(x: -monster.size.width/2, y: actualY + yMod),
+      actionMove = SKAction.move(to: CGPoint(x: -monster.size.width/2, y: actualY + yMod),
                                      duration: TimeInterval(actualDuration))
-      let loseAction = SKAction.run() {
-        let monsterIndex = self.getIndexOfMonster(monster: monster, list: self.enemyNotiArray)
-        if (monsterIndex >= 0){
-          self.enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
-          self.enemyNotiArray.remove(at: monsterIndex)
-        }
-        monster.removeFromParent()
-//        let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
-//        let gameOverScene = GameOverScene(size: self.size, won: false)
-//        self.view?.presentScene(gameOverScene, transition: reveal)
-      }
-      monster.run(SKAction.sequence([actionMove, loseAction, actionMoveDone]))
-
     }
+    
+    // Lose Actions
+    loseAction = SKAction.run() {
+      let monsterIndex = self.getIndexOfMonster(monster: monster, list: self.enemyNotiArray)
+      if (monsterIndex >= 0){
+        self.enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
+        self.enemyNotiArray.remove(at: monsterIndex)
+      }
+      monster.removeFromParent()
+    }
+    
+    // Action to do when movement is over.
+    actionMoveDone = SKAction.removeFromParent()
+    
+    // Add actions to monster!
+    monster.run(SKAction.sequence([actionMove, loseAction, actionMoveDone]))
   }
   
+  //
+  //   ╔══════════════════════════════════════════════╗
+  //   ║  When finger is removed from screen...       ║
+  //   ╚══════════════════════════════════════════════╝
+  //
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-    // 1 - Choose one of the touches to work with
+    // Choose one of the touches to work with
     guard let touch = touches.first else {
       return
     }
     let touchLocation = touch.location(in: self)
     
-    // 2 - Set up initial location of projectile
+    // Set up initial location of projectile
     let projectile = SKSpriteNode(imageNamed: "projectile")
     projectile.position = player.position
     
+    // Set projectile physics.
     projectile.physicsBody = SKPhysicsBody(circleOfRadius: projectile.size.width/2)
     projectile.physicsBody?.isDynamic = true
     projectile.physicsBody?.categoryBitMask = PhysicsCategory.projectile
@@ -304,62 +339,83 @@ class GameScene: SKScene {
     projectile.physicsBody?.usesPreciseCollisionDetection = true
 
     
-    // 3 - Determine offset of location to projectile
+    // Determine offset of location to projectile
     let offset = touchLocation - projectile.position
     
-    // 4 - Bail out if you are shooting down or backwards
-    //    if offset.x < 0 { return }
-    
-    // 5 - OK to add now - you've double checked position
+    // Add child
     addChild(projectile)
     
-    // 6 - Get the direction of where to shoot
+    // Get the direction of where to shoot
     let direction = offset.normalized()
     
-    // 7 - Make it shoot far enough to be guaranteed off screen
+    // Make it shoot far enough to be guaranteed off screen
     let shootAmount = direction * 2000
     
-    // 8 - Add the shoot amount to the current position
+    // Add the shoot amount to the current position
     let realDest = shootAmount + projectile.position
     
-    // 9 - Create the actions
-    let actionMove = SKAction.move(to: realDest, duration: 2.0)
+    // Create the actions
+    let actionMove = SKAction.move(to: realDest, duration: 1.5)
     let actionMoveDone = SKAction.removeFromParent()
     projectile.run(SKAction.sequence([actionMove, actionMoveDone]))
   }
 
+  //
+  //   ╔════════════════════════════════════════════════════╗
+  //   ║  What to do on projectile collision w/ monster.    ║
+  //   ╚════════════════════════════════════════════════════╝
+  //
   func projectileDidCollideWithMonster(projectile: SKSpriteNode, monster: SKSpriteNode) {
-    print("Hit")
+    // Increment kills and remove projectile.
     kills += 1
-    print (kills)
     projectile.removeFromParent()
+    
+    // If monster is within enemyNotiArray...
     let monsterIndex = getIndexOfMonster(monster: monster, list: enemyNotiArray)
+    // Remove it's line, cube and the monster itself.
     if (monsterIndex >= 0){
-//      enemyNotiArray[monsterIndex].eCube.line.removeFromParent();
+      enemyNotiArray[monsterIndex].eCube.line.removeFromParent();
       enemyNotiArray[monsterIndex].eCube.cube.removeFromParent();
       enemyNotiArray.remove(at: monsterIndex)
     }
+    
+    // Update enemy count label.
     if let killsLabel = killsLabel {
-//      killsLabel.text = String(kills)
       killsLabel.text = String(enemyNotiArray.count)
     }
-    monster.removeFromParent()
     
+    // Remove monster from scene.
+    monster.removeFromParent()
   }
-  
+
+  //
+  //   ╔═════════════════════════════════════════════════════════════════╗
+  //   ║  Find monster's index in the enemyNoti array, if it exists.     ║
+  //   ╚═════════════════════════════════════════════════════════════════╝
+  //
   func getIndexOfMonster(monster: SKSpriteNode, list: Array<EnemyNoti>) -> Int
   {
     var index = 0
     for enemyNoti in list{
+      // If monster is found, return index.
       if (enemyNoti.enemyTarget == monster){
         return index
       }
-      index += 1
+      // Otherwise, increment.
+      else{
+        index += 1
+      }
     }
     return -1
   }
   
+  //
+  //   ╔════════════════════════════════════════════════════════════════════════╗
+  //   ║  Return the line from player to monster, as well as the noti cube.     ║
+  //   ╚════════════════════════════════════════════════════════════════════════╝
+  //
   func createLine(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat) -> (shape: SKShapeNode, cube: SKShapeNode){
+    
     // Get direction
     var direction = monsterPosition - playerPosition
     
@@ -376,33 +432,40 @@ class GameScene: SKScene {
     line_path.addLine(to: playerPosition + direction)
     
     // Add cube!
-    var cube = placeCube(cubePoint: playerPosition + direction, distance: distance)
+    var cube = placeCube(cubePoint: playerPosition + direction, distance: distance, maxSize: 30)
     
+    // Create Line! (TODO: REMOVE ???)
     let shape = SKShapeNode()
     shape.path = line_path
     shape.strokeColor = UIColor.red
     shape.lineWidth = 2
     
-//    addChild(shape)
-    
     return (shape, cube)
   }
   
-  func placeCube(cubePoint: CGPoint, distance: CGFloat) -> SKShapeNode{
+  //
+  //   ╔═════════════════════════════════════════════╗
+  //   ║  Returns and adds the notification cube.    ║
+  //   ╚═════════════════════════════════════════════╝
+  //
+  func placeCube(cubePoint: CGPoint, distance: CGFloat, maxSize: CGFloat) -> SKShapeNode{
+    
+    // Create the size of the cube based on distance.
     var size = 15*(100/distance)
-    if (size > 40){
-      size = 40
+    // Cap cube size.
+    if (size > maxSize){
+      size = maxSize
     }
     
-    var barra = SKShapeNode(rectOf: CGSize(width: size, height: size))
-    barra.name = "bar"
-    barra.fillColor = SKColor.red
-    barra.position = cubePoint
+    // Create cube!
+    let cube = SKShapeNode(rectOf: CGSize(width: size, height: size))
+    cube.fillColor = SKColor.red
+    cube.position = cubePoint
 
-    self.addChild(barra)
-    return barra
+    // Add cube to scene, then return it.
+    self.addChild(cube)
+    return cube
   }
-
     
 }
 
