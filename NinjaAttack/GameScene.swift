@@ -94,6 +94,14 @@ struct PhysicsCategory {
   static let projectile: UInt32 = 0b10
 }
 
+struct Enemy {
+  var enemyNoti: EnemyNoti
+  var leftFacing: Bool
+  var ranger: Bool
+  var sightRadius: CGFloat
+  var dangerCloseRadius: CGFloat
+}
+
 struct EnemyNoti {
   var enemyTarget : SKSpriteNode
   var distanceTo : CGFloat
@@ -116,7 +124,7 @@ class GameScene: SKScene {
   private let player : SKSpriteNode = SKSpriteNode(imageNamed: "player")
   private var kills : UInt32 = 0
   private var noLefts : UInt32 = 0    // Tracks number of enemies between left-spawned enemies.
-  private var enemyNotiArray: [EnemyNoti] = []
+  private var enemyArray: [Enemy] = []
   private var killsLabel : SKLabelNode?
     
   //
@@ -191,24 +199,16 @@ class GameScene: SKScene {
   //
   func redrawLines(){
     var index = -1
-    for enemy in enemyNotiArray{
-      index = getIndexOfMonster(monster: enemy.enemyTarget, list: enemyNotiArray)
+    for enemy in enemyArray{
+      index = getIndexOfMonster(monster: enemy.enemyNoti.enemyTarget, list: enemyArray)
       if (index >= 0){
 
         // Calculates the new distance from player to monster.
-        enemyNotiArray[index].distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyTarget.position)
+        enemyArray[index].enemyNoti.distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyNoti.enemyTarget.position)
 
         // Updates cube with new distance/position.
-        updateCubeHandler(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo, cube: enemyNotiArray[index].cube)
+        updateCubeHandler(playerPosition: player.position, monsterPosition: enemy.enemyNoti.enemyTarget.position, distance: enemyArray[index].enemyNoti.distanceTo, cube: enemyArray[index].enemyNoti.cube)
         
-//        // Removes the cube from the parent.
-//        enemyNotiArray[index].cube.removeFromParent()
-//        // Calculates the new distance from player to monster.
-//        enemyNotiArray[index].distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyTarget.position)
-//        // Creates a new cube.
-//        let cube = createCube(playerPosition: player.position, monsterPosition: enemy.enemyTarget.position, distance: enemyNotiArray[index].distanceTo)
-//        // Reassigns the enemyNoti's cube.
-//        enemyNotiArray[index].cube = cube
       }
     }
   }
@@ -237,6 +237,15 @@ class GameScene: SKScene {
     var leftSpawn = random(min: 0.0, max: 15.0 + CGFloat(noLefts))
     leftSpawn = round(leftSpawn)
     
+    // Spawn 'rangers' 1 in 20 times.
+    var rangerSpawn = random(min: 0.0, max: 20.0)
+    rangerSpawn = round(leftSpawn)
+    
+    // If Ranger...
+    if (rangerSpawn >= 19.0){
+      
+    }
+    
     // Position the monster slightly off-screen along the right edge,
     // and along a random position along the Y axis as calculated above
     if (leftSpawn >= 15.0){
@@ -250,11 +259,15 @@ class GameScene: SKScene {
     
     // Create and add new EnemyNoti
     let cube = createCube(playerPosition: player.position, monsterPosition: monster.position, distance: distanceBetweenPoints(first: player.position, second: monster.position) )
-    enemyNotiArray.append(EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), cube: cube))
+    let eNoti = EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), cube: cube)
+    
+    // Creates and adds enemy object
+    let enemyObj = Enemy(enemyNoti: eNoti, leftFacing: false, ranger: false, sightRadius: -1, dangerCloseRadius: -1)
+    enemyArray.append(enemyObj)
     
     // Update enemy count
     if let killsLabel = killsLabel {
-      killsLabel.text = String(enemyNotiArray.count)
+      killsLabel.text = String(enemyArray.count)
     }
     
     // Add the monster to the scene
@@ -294,10 +307,10 @@ class GameScene: SKScene {
     
     // Lose Actions
     loseAction = SKAction.run() {
-      let monsterIndex = self.getIndexOfMonster(monster: monster, list: self.enemyNotiArray)
+      let monsterIndex = self.getIndexOfMonster(monster: monster, list: self.enemyArray)
       if (monsterIndex >= 0){
-        self.enemyNotiArray[monsterIndex].cube.removeFromParent();
-        self.enemyNotiArray.remove(at: monsterIndex)
+        self.enemyArray[monsterIndex].enemyNoti.cube.removeFromParent();
+        self.enemyArray.remove(at: monsterIndex)
       }
       monster.removeFromParent()
     }
@@ -365,17 +378,17 @@ class GameScene: SKScene {
     kills += 1
     projectile.removeFromParent()
     
-    // If monster is within enemyNotiArray...
-    let monsterIndex = getIndexOfMonster(monster: monster, list: enemyNotiArray)
+    // If monster is within enemyArray...
+    let monsterIndex = getIndexOfMonster(monster: monster, list: enemyArray)
     // Remove it's cube and the monster itself.
     if (monsterIndex >= 0){
-      enemyNotiArray[monsterIndex].cube.removeFromParent();
-      enemyNotiArray.remove(at: monsterIndex)
+      enemyArray[monsterIndex].enemyNoti.cube.removeFromParent();
+      enemyArray.remove(at: monsterIndex)
     }
     
     // Update enemy count label.
     if let killsLabel = killsLabel {
-      killsLabel.text = String(enemyNotiArray.count)
+      killsLabel.text = String(enemyArray.count)
     }
     
     // Remove monster from scene.
@@ -384,15 +397,15 @@ class GameScene: SKScene {
 
   //
   //   ╔═════════════════════════════════════════════════════════════════╗
-  //   ║  Find monster's index in the enemyNoti array, if it exists.     ║
+  //   ║  Find monster's index in the enemy array, if it exists.         ║
   //   ╚═════════════════════════════════════════════════════════════════╝
   //
-  func getIndexOfMonster(monster: SKSpriteNode, list: Array<EnemyNoti>) -> Int
+  func getIndexOfMonster(monster: SKSpriteNode, list: Array<Enemy>) -> Int
   {
     var index = 0
-    for enemyNoti in list{
+    for enemy in list{
       // If monster is found, return index.
-      if (enemyNoti.enemyTarget == monster){
+      if (enemy.enemyNoti.enemyTarget == monster){
         return index
       }
       // Otherwise, increment.
