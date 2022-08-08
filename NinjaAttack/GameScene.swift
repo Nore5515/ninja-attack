@@ -262,8 +262,8 @@ class GameScene: SKScene {
     // If Ranger...
     if (rangerSpawn >= 19.0){
       enemyObj.ranger = true
-      enemyObj.sightRadius = 100
-      enemyObj.dangerCloseRadius = 50
+      enemyObj.sightRadius = 200
+      enemyObj.dangerCloseRadius = 10
     }
     
     // Adds enemy obj to array.
@@ -306,10 +306,7 @@ class GameScene: SKScene {
     // Custom Move action if ranger.
     else if (enemyObj.ranger){
       print("RANGER")
-      actionMove = SKAction.move(to: moveCloseToPlayer(playerPos: player.position, startingPos: monster.position, buffer: 100), duration: TimeInterval(actualDuration))
-      if (distanceBetweenPoints(first: player.position, second: monster.position) < 100){
-        print ("Gotcha!")
-      }
+      actionMove = SKAction.move(to: moveCloseToPlayer(playerPos: player.position, startingPos: monster.position, buffer: enemyObj.sightRadius), duration: TimeInterval(actualDuration))
     }
     // Regular move action of correct moving.
     else{
@@ -327,16 +324,16 @@ class GameScene: SKScene {
       monster.removeFromParent()
     }
     
-    // Action to do when movement is over
-    actionMoveDone = SKAction.removeFromParent()
-    
     // Add actions to monster (if not ranger)!
     if (!enemyObj.ranger){
       monster.run(SKAction.sequence([actionMove, loseAction]))
     }
-    // Rangers should just idle after reaching dest.
+    // Rangers should just start shooting after reaching dest.
     else{
-      monster.run(SKAction.sequence([actionMove]))
+      let shootAction = SKAction.run() {
+        
+      }
+      monster.run(SKAction.sequence([actionMove, actionShoot]))
     }
     
   }
@@ -373,6 +370,8 @@ class GameScene: SKScene {
     }
     let touchLocation = touch.location(in: self)
     
+    createProjectile(touchLocation: <#T##CGPoint#>, player.position: <#T##CGPoint#>)
+    
     // Set up initial location of projectile
     let projectile = SKSpriteNode(imageNamed: "projectile")
     projectile.position = player.position
@@ -406,6 +405,44 @@ class GameScene: SKScene {
     let actionMoveDone = SKAction.removeFromParent()
     projectile.run(SKAction.sequence([actionMove, actionMoveDone]))
   }
+  
+  //
+  //   ╔════════════════════════════════════════════════════╗
+  //   ║  Create Projectile.                                ║
+  //   ╚════════════════════════════════════════════════════╝
+  //
+  func createProjectile(destination: CGPoint, origin: CGPoint) -> SKSpriteNode{
+    // Set up initial location of projectile
+    let projectile = SKSpriteNode(imageNamed: "projectile")
+    projectile.position = origin
+    
+    // Set projectile physics.
+    projectile.physicsBody = SKPhysicsBody(circleOfRadius: projectile.size.width/2)
+    projectile.physicsBody?.isDynamic = true
+    projectile.physicsBody?.categoryBitMask = PhysicsCategory.projectile
+    projectile.physicsBody?.contactTestBitMask = PhysicsCategory.monster
+    projectile.physicsBody?.collisionBitMask = PhysicsCategory.none
+    projectile.physicsBody?.usesPreciseCollisionDetection = true
+    
+    // Determine offset of location to projectile
+    let offset = destination - projectile.position
+    
+    // Get the direction of where to shoot
+    let direction = offset.normalized()
+    
+    // Make it shoot far enough to be guaranteed off screen
+    let shootAmount = direction * 2000
+    
+    // Add the shoot amount to the current position
+    let realDest = shootAmount + projectile.position
+    
+    // Create the actions
+    let actionMove = SKAction.move(to: realDest, duration: 1.5)
+    let actionMoveDone = SKAction.removeFromParent()
+    projectile.run(SKAction.sequence([actionMove, actionMoveDone]))
+    return projectile
+  }
+  
 
   //
   //   ╔════════════════════════════════════════════════════╗
