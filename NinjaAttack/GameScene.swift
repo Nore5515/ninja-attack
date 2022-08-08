@@ -92,6 +92,8 @@ struct PhysicsCategory {
   static let all       : UInt32 = UInt32.max
   static let monster   : UInt32 = 0b1
   static let projectile: UInt32 = 0b10
+  static let player   : UInt32 = 0b11
+  static let monsterProjectile   : UInt32 = 0b101
 }
 
 struct Enemy {
@@ -122,11 +124,13 @@ class GameScene: SKScene {
   
   // Variable Initialization
   private let player : SKSpriteNode = SKSpriteNode(imageNamed: "player")
+  private var health : UInt32 = 100
   private var kills : UInt32 = 0
   private var noLefts : UInt32 = 0    // Tracks number of enemies between left-spawned enemies.
   private var noRanged : UInt32 = 0    // Tracks number of enemies between ranged enemies.
   private var enemyArray: [Enemy] = []
   private var killsLabel : SKLabelNode?
+  private var healthLabel : SKLabelNode?
     
   //
   //   ╔══════════════════════════════════════════════╗
@@ -144,15 +148,37 @@ class GameScene: SKScene {
     killsLabel.fontSize = 14
     killsLabel.position = CGPoint(x:size.width * 0.4, y:size.height * 0.4)
     
+    // Initializes the health label.
+    let healthLabel = SKLabelNode(fontNamed:"Times New Roman")
+    healthLabel.fontColor = UIColor.black
+    healthLabel.text = String(health)
+    healthLabel.fontSize = 18
+    healthLabel.position = CGPoint(x:size.width * 0.6, y:size.height * 0.4)
+
+    
     // Saves kills label to class variable.
     self.killsLabel = killsLabel
     // Adds kills label to scene.
     if let killsLabel = self.killsLabel {
       self.addChild(killsLabel)
     }
+    
+    // Saves health label to class variable.
+    self.healthLabel = healthLabel
+    if let healthLabel = self.healthLabel {
+      self.addChild(healthLabel)
+    }
 
     // Set player's position and add to scene.
     player.position = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+    
+    // Adds physics to player.
+    player.physicsBody = SKPhysicsBody(rectangleOf: player.size)
+    player.physicsBody?.isDynamic = true
+    player.physicsBody?.categoryBitMask = PhysicsCategory.player
+    player.physicsBody?.contactTestBitMask = PhysicsCategory.none
+    player.physicsBody?.collisionBitMask = PhysicsCategory.none
+    
     addChild(player)
     
     // Set world physics.
@@ -210,6 +236,9 @@ class GameScene: SKScene {
         // Updates cube with new distance/position.
         updateCubeHandler(playerPosition: player.position, monsterPosition: enemy.enemyNoti.enemyTarget.position, distance: enemyArray[index].enemyNoti.distanceTo, cube: enemyArray[index].enemyNoti.cube)
         
+      }
+      else{
+        print ("No enemy found in redraw lines.")
       }
     }
   }
@@ -326,7 +355,23 @@ class GameScene: SKScene {
       if (monsterIndex >= 0){
         self.enemyArray[monsterIndex].enemyNoti.cube.removeFromParent();
         self.enemyArray.remove(at: monsterIndex)
+        
+        // Damage stuff
+        if (self.health <= 1){
+          self.health -= 1
+          let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
+          let gameOverScene = GameOverScene(size: self.size, won: false)
+          self.view?.presentScene(gameOverScene, transition: reveal)
+        }else{
+          self.health -= 1
+        }
+        
+        // Update health count
+        if let healthLabel = self.healthLabel {
+          healthLabel.text = String(self.health)
+        }
       }
+      
       monster.removeFromParent()
     }
     
@@ -337,12 +382,8 @@ class GameScene: SKScene {
     // Rangers should just start shooting after reaching dest.
     else{
       let actionShoot = SKAction.run() { [self] in
-        addChild(self.createProjectile(destination: self.player.position, origin: monster.position, contactBitMask: PhysicsCategory.none, categoryBitMask: PhysicsCategory.none))
+        addChild(self.createProjectile(destination: self.player.position, origin: monster.position, contactBitMask: PhysicsCategory.player, categoryBitMask: PhysicsCategory.monsterProjectile))
       }
-//      let actionShootRepeated = SKAction.repeat(actionShoot, 10)
-//      let actRepeat = SKAction.repeatForever() (
-//        SKAction.sequence([actionShoot, SKAction.wait(forDuration: 2.0)])
-//      )
       let seq = SKAction.sequence([actionShoot, SKAction.wait(forDuration: 2.0)])
       let actRepeat = SKAction.repeatForever(seq)
       
@@ -427,23 +468,29 @@ class GameScene: SKScene {
     return projectile
   }
   
-
   //
   //   ╔════════════════════════════════════════════════════╗
   //   ║  What to do on projectile collision w/ monster.    ║
   //   ╚════════════════════════════════════════════════════╝
   //
   func projectileDidCollideWithMonster(projectile: SKSpriteNode, monster: SKSpriteNode) {
+    // print ("MONSTER COLLIDE")
+    
     // Increment kills and remove projectile.
     kills += 1
     projectile.removeFromParent()
     
     // If monster is within enemyArray...
     let monsterIndex = getIndexOfMonster(monster: monster, list: enemyArray)
+    
     // Remove it's cube and the monster itself.
     if (monsterIndex >= 0){
+      print ("removing cube")
       enemyArray[monsterIndex].enemyNoti.cube.removeFromParent();
       enemyArray.remove(at: monsterIndex)
+    }
+    else{
+      print("Monster not found")
     }
     
     // Update enemy count label.
@@ -453,6 +500,31 @@ class GameScene: SKScene {
     
     // Remove monster from scene.
     monster.removeFromParent()
+  }
+
+  //
+  //   ╔════════════════════════════════════════════════════╗
+  //   ║  What to do on projectile collision w/ player.     ║
+  //   ╚════════════════════════════════════════════════════╝
+  //
+  func projectileDidCollideWithPlayer(projectile: SKSpriteNode) {
+    // print ("PLAYER COLLIDE")
+
+    // Decrement health and remove projectile.
+    if (health <= 1){
+      health -= 1
+      let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
+      let gameOverScene = GameOverScene(size: self.size, won: false)
+      self.view?.presentScene(gameOverScene, transition: reveal)
+    }else{
+      health -= 1
+    }
+    projectile.removeFromParent()
+      
+    // Update health count
+    if let healthLabel = self.healthLabel {
+      healthLabel.text = String(health)
+    }
   }
 
   //
@@ -574,14 +646,32 @@ extension GameScene: SKPhysicsContactDelegate {
       firstBody = contact.bodyB
       secondBody = contact.bodyA
     }
+    
+//    print ("First Body", firstBody.categoryBitMask)
+//    print ("Monster", PhysicsCategory.monster)
+//    print ("Player", PhysicsCategory.player)
+//    print ("Projectile", PhysicsCategory.projectile)
+//    print ("Monster Projectile", PhysicsCategory.monsterProjectile)
+//    print (firstBody.categoryBitMask & PhysicsCategory.player == 0)
+//    print (secondBody.categoryBitMask & PhysicsCategory.monsterProjectile == 0)
+//    print ("Second Body", secondBody.categoryBitMask)
    
-    if ((firstBody.categoryBitMask & PhysicsCategory.monster != 0) &&
-        (secondBody.categoryBitMask & PhysicsCategory.projectile != 0)) {
+    if ((firstBody.categoryBitMask == PhysicsCategory.monster) &&
+        (secondBody.categoryBitMask == PhysicsCategory.projectile)) {
       if let monster = firstBody.node as? SKSpriteNode,
         let projectile = secondBody.node as? SKSpriteNode {
         projectileDidCollideWithMonster(projectile: projectile, monster: monster)
       }
     }
+    
+   if ((firstBody.categoryBitMask == PhysicsCategory.player) &&
+       (secondBody.categoryBitMask == PhysicsCategory.monsterProjectile)) {
+
+     if let projectile = secondBody.node as? SKSpriteNode {
+       projectileDidCollideWithPlayer(projectile: projectile)
+     }
+   }
+
   }
 
 }
