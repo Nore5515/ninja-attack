@@ -635,6 +635,16 @@ class GameScene: SKScene {
 }
 
 
+//
+//   ╔══════════════════════════════════════════════╗
+// ╔══════════════════════════════════════════════════╗
+// ║                                                  ║
+// ║  PHYSICS                                         ║
+// ║                                                  ║
+// ╚══════════════════════════════════════════════════╝
+//   ╚══════════════════════════════════════════════╝
+//
+
 extension GameScene: SKPhysicsContactDelegate {
   func didBegin(_ contact: SKPhysicsContact) {
     var firstBody: SKPhysicsBody
@@ -656,6 +666,7 @@ extension GameScene: SKPhysicsContactDelegate {
 //    print (secondBody.categoryBitMask & PhysicsCategory.monsterProjectile == 0)
 //    print ("Second Body", secondBody.categoryBitMask)
    
+    // Collision between monster and projectile.
     if ((firstBody.categoryBitMask == PhysicsCategory.monster) &&
         (secondBody.categoryBitMask == PhysicsCategory.projectile)) {
       if let monster = firstBody.node as? SKSpriteNode,
@@ -663,14 +674,14 @@ extension GameScene: SKPhysicsContactDelegate {
         projectileDidCollideWithMonster(projectile: projectile, monster: monster)
       }
     }
-    
-   if ((firstBody.categoryBitMask == PhysicsCategory.player) &&
-       (secondBody.categoryBitMask == PhysicsCategory.monsterProjectile)) {
 
+    // Collision between monster projectile and player.
+    if ((firstBody.categoryBitMask == PhysicsCategory.player) &&
+       (secondBody.categoryBitMask == PhysicsCategory.monsterProjectile)) {
      if let projectile = secondBody.node as? SKSpriteNode {
        projectileDidCollideWithPlayer(projectile: projectile)
      }
-   }
+    }
 
   }
 
