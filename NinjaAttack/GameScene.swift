@@ -109,6 +109,7 @@ struct EnemyNoti {
   var enemyTarget : SKSpriteNode
   var distanceTo : CGFloat
   var cube : SKShapeNode
+  var circle : SKShapeNode
 }
 
 //
@@ -235,7 +236,7 @@ class GameScene: SKScene {
         enemyArray[index].enemyNoti.distanceTo = distanceBetweenPoints(first: player.position, second: enemy.enemyNoti.enemyTarget.position)
 
         // Updates cube with new distance/position.
-        updateCubeHandler(playerPosition: player.position, monsterPosition: enemy.enemyNoti.enemyTarget.position, distance: enemyArray[index].enemyNoti.distanceTo, cube: enemyArray[index].enemyNoti.cube)
+        updateCubeHandler(playerPosition: player.position, monsterPosition: enemy.enemyNoti.enemyTarget.position, distance: enemyArray[index].enemyNoti.distanceTo, cube: enemyArray[index].enemyNoti.cube, circle: enemyArray[index].enemyNoti.circle)
         
       }
       else{
@@ -280,8 +281,8 @@ class GameScene: SKScene {
     }
     
     // Create and add new EnemyNoti
-    let cube = createCube(playerPosition: player.position, monsterPosition: monster.position, distance: distanceBetweenPoints(first: player.position, second: monster.position) )
-    let eNoti = EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), cube: cube)
+    let (cube, circle) = createCube(playerPosition: player.position, monsterPosition: monster.position, distance: distanceBetweenPoints(first: player.position, second: monster.position) )
+    let eNoti = EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), cube: cube, circle:circle)
     
     // Creates an enemy object
     var enemyObj = Enemy(enemyNoti: eNoti, leftFacing: false, ranger: false, sightRadius: -1, dangerCloseRadius: -1, hp: 1)
@@ -488,9 +489,7 @@ class GameScene: SKScene {
     enemy = self.enemyArray[enemyIndex]
     
     // Reduce enemy HP.
-    print (enemy.hp)
     enemy.hp -= 1
-    print (enemy.hp)
     
     self.enemyArray[enemyIndex] = enemy
     
@@ -563,7 +562,7 @@ class GameScene: SKScene {
   //   ║  Return the noticube from player to monster.   ║
   //   ╚════════════════════════════════════════════════╝
   //
-  func createCube(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat) -> SKShapeNode{
+  func createCube(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat) -> (SKShapeNode, SKShapeNode){
     
     // Get direction
     var direction = monsterPosition - playerPosition
@@ -574,9 +573,9 @@ class GameScene: SKScene {
     direction = direction * 50
     
     // Add cube!
-    let cube = placeCube(cubePoint: playerPosition + direction, distance: distance, maxSize: 10)
+    let (cube, circle) = placeCube(cubePoint: playerPosition + direction, distance: distance, monsterPos: monsterPosition, maxSize: 10)
     
-    return (cube)
+    return (cube, circle)
   }
   
   //
@@ -584,7 +583,7 @@ class GameScene: SKScene {
   //   ║  Updates the given cube to the new position/size.     ║
   //   ╚═══════════════════════════════════════════════════════╝
   //
-  func updateCubeHandler(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat, cube: SKShapeNode){
+  func updateCubeHandler(playerPosition: CGPoint, monsterPosition: CGPoint, distance: CGFloat, cube: SKShapeNode, circle: SKShapeNode){
     
     // Get direction
     var direction = monsterPosition - playerPosition
@@ -597,6 +596,9 @@ class GameScene: SKScene {
     // Add cube!
     let cubePoint = playerPosition + direction
     updateCube(cubePoint: cubePoint, distance: distance, maxSize: 10, cube: cube)
+    
+    // Move circle!
+    updateCircle(circlePoint: monsterPosition, circle: circle)
   }
   
   //
@@ -604,7 +606,7 @@ class GameScene: SKScene {
   //   ║  Returns and adds the notification cube.    ║
   //   ╚═════════════════════════════════════════════╝
   //
-  func placeCube(cubePoint: CGPoint, distance: CGFloat, maxSize: CGFloat) -> SKShapeNode{
+  func placeCube(cubePoint: CGPoint, distance: CGFloat, monsterPos: CGPoint, maxSize: CGFloat) -> (SKShapeNode, SKShapeNode){
     
     // Create the size of the cube based on distance.
     var size = 15*(100/distance)
@@ -617,10 +619,17 @@ class GameScene: SKScene {
     let cube = SKShapeNode(rectOf: CGSize(width: size, height: size))
     cube.fillColor = SKColor.red
     cube.position = cubePoint
-
+    
+    // Create circle for each HP
+    var circle = SKShapeNode(circleOfRadius: 20 ) // Size of Circle
+    circle.position = monsterPos
+    circle.strokeColor = SKColor.black
+    circle.glowWidth = 1.0
+    self.addChild(circle)
+    
     // Add cube to scene, then return it.
     self.addChild(cube)
-    return cube
+    return (cube, circle)
   }
   
   //
@@ -641,6 +650,17 @@ class GameScene: SKScene {
     cube.position = cubePoint
     cube.setScale(size)
     cube.fillColor = SKColor.red
+  }
+  
+  //
+  //   ╔═════════════════════════════════════════════╗
+  //   ║  Updates the enemy circle.                  ║
+  //   ╚═════════════════════════════════════════════╝
+  //
+  func updateCircle(circlePoint: CGPoint, circle: SKShapeNode){
+    
+    // Update circle!
+    circle.position = circlePoint
   }
 }
 
