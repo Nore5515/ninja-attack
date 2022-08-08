@@ -480,19 +480,19 @@ class GameScene: SKScene {
     var enemy : Enemy
     
     // Find respective enemy.
-    let enemyIndex = getIndexOfMonster(monster: monster, list: enemyArray)
-    if (enemyIndex >= 0){
-      enemy = enemyArray[enemyIndex]
-    }
-    else{
-      print ("ERROR; ENEMY NOT FOUND")
+    
+    guard let enemyIndex = self.enemyArray.firstIndex(where: { $0.enemyNoti.enemyTarget == monster }) else {
+      print("ENEMY NOT FOUND")
       return
     }
+    enemy = self.enemyArray[enemyIndex]
     
     // Reduce enemy HP.
     print (enemy.hp)
     enemy.hp -= 1
     print (enemy.hp)
+    
+    self.enemyArray[enemyIndex] = enemy
     
     // Eliminate projectile.
     projectile.removeFromParent()
@@ -547,19 +547,14 @@ class GameScene: SKScene {
   //   ║  Find monster's index in the enemy array, if it exists.         ║
   //   ╚═════════════════════════════════════════════════════════════════╝
   //
+  
   func getIndexOfMonster(monster: SKSpriteNode, list: Array<Enemy>) -> Int
   {
-    var index = 0
-    for enemy in list{
-      // If monster is found, return index.
-      if (enemy.enemyNoti.enemyTarget == monster){
-        return index
-      }
-      // Otherwise, increment.
-      else{
-        index += 1
-      }
+    
+    if let index = list.firstIndex(where: { $0.enemyNoti.enemyTarget == monster }) {
+      return index
     }
+    
     return -1
   }
   
