@@ -124,6 +124,7 @@ class GameScene: SKScene {
   private let player : SKSpriteNode = SKSpriteNode(imageNamed: "player")
   private var kills : UInt32 = 0
   private var noLefts : UInt32 = 0    // Tracks number of enemies between left-spawned enemies.
+  private var noRanged : UInt32 = 0    // Tracks number of enemies between ranged enemies.
   private var enemyArray: [Enemy] = []
   private var killsLabel : SKLabelNode?
     
@@ -255,15 +256,20 @@ class GameScene: SKScene {
     // Creates an enemy object
     var enemyObj = Enemy(enemyNoti: eNoti, leftFacing: false, ranger: false, sightRadius: -1, dangerCloseRadius: -1)
    
-    // Spawn 'rangers' 1 in 20 times.
-    var rangerSpawn = random(min: 0.0, max: 20.0)
+    // Spawn 'rangers' 1 in 20 times, odds increasing over time.
+    var rangerSpawn = random(min: 0.0, max: 20.0 + CGFloat(noRanged))
     rangerSpawn = round(leftSpawn)
     
     // If Ranger...
-    if (rangerSpawn >= 19.0){
+    // TODO: replace with 19
+    if (rangerSpawn >= 9.0){
       enemyObj.ranger = true
       enemyObj.sightRadius = 200
       enemyObj.dangerCloseRadius = 10
+      noRanged = 0
+    }
+    else{
+      noRanged += 1
     }
     
     // Adds enemy obj to array.
@@ -330,10 +336,17 @@ class GameScene: SKScene {
     }
     // Rangers should just start shooting after reaching dest.
     else{
-      let shootAction = SKAction.run() {
-        
+      let actionShoot = SKAction.run() { [self] in
+        addChild(self.createProjectile(destination: self.player.position, origin: monster.position, contactBitMask: PhysicsCategory.none, categoryBitMask: PhysicsCategory.none))
       }
-      monster.run(SKAction.sequence([actionMove, actionShoot]))
+//      let actionShootRepeated = SKAction.repeat(actionShoot, 10)
+//      let actRepeat = SKAction.repeatForever() (
+//        SKAction.sequence([actionShoot, SKAction.wait(forDuration: 2.0)])
+//      )
+      let seq = SKAction.sequence([actionShoot, SKAction.wait(forDuration: 2.0)])
+      let actRepeat = SKAction.repeatForever(seq)
+      
+      monster.run(SKAction.sequence([actionMove, actRepeat]))
     }
     
   }
@@ -370,48 +383,19 @@ class GameScene: SKScene {
     }
     let touchLocation = touch.location(in: self)
     
-    createProjectile(touchLocation: <#T##CGPoint#>, player.position: <#T##CGPoint#>)
-    
     // Set up initial location of projectile
-    let projectile = SKSpriteNode(imageNamed: "projectile")
-    projectile.position = player.position
-    
-    // Set projectile physics.
-    projectile.physicsBody = SKPhysicsBody(circleOfRadius: projectile.size.width/2)
-    projectile.physicsBody?.isDynamic = true
-    projectile.physicsBody?.categoryBitMask = PhysicsCategory.projectile
-    projectile.physicsBody?.contactTestBitMask = PhysicsCategory.monster
-    projectile.physicsBody?.collisionBitMask = PhysicsCategory.none
-    projectile.physicsBody?.usesPreciseCollisionDetection = true
-
-    
-    // Determine offset of location to projectile
-    let offset = touchLocation - projectile.position
-    
+    let projectile = createProjectile(destination: touchLocation, origin: player.position, contactBitMask: PhysicsCategory.monster, categoryBitMask: PhysicsCategory.projectile)
+  
     // Add child
     addChild(projectile)
-    
-    // Get the direction of where to shoot
-    let direction = offset.normalized()
-    
-    // Make it shoot far enough to be guaranteed off screen
-    let shootAmount = direction * 2000
-    
-    // Add the shoot amount to the current position
-    let realDest = shootAmount + projectile.position
-    
-    // Create the actions
-    let actionMove = SKAction.move(to: realDest, duration: 1.5)
-    let actionMoveDone = SKAction.removeFromParent()
-    projectile.run(SKAction.sequence([actionMove, actionMoveDone]))
   }
   
   //
   //   ╔════════════════════════════════════════════════════╗
-  //   ║  Create Projectile.                                ║
+  //   ║  Create and return a projectile.                   ║
   //   ╚════════════════════════════════════════════════════╝
   //
-  func createProjectile(destination: CGPoint, origin: CGPoint) -> SKSpriteNode{
+  func createProjectile(destination: CGPoint, origin: CGPoint, contactBitMask: UInt32, categoryBitMask: UInt32) -> SKSpriteNode{
     // Set up initial location of projectile
     let projectile = SKSpriteNode(imageNamed: "projectile")
     projectile.position = origin
@@ -419,8 +403,8 @@ class GameScene: SKScene {
     // Set projectile physics.
     projectile.physicsBody = SKPhysicsBody(circleOfRadius: projectile.size.width/2)
     projectile.physicsBody?.isDynamic = true
-    projectile.physicsBody?.categoryBitMask = PhysicsCategory.projectile
-    projectile.physicsBody?.contactTestBitMask = PhysicsCategory.monster
+    projectile.physicsBody?.categoryBitMask = categoryBitMask
+    projectile.physicsBody?.contactTestBitMask = contactBitMask
     projectile.physicsBody?.collisionBitMask = PhysicsCategory.none
     projectile.physicsBody?.usesPreciseCollisionDetection = true
     
@@ -581,7 +565,6 @@ class GameScene: SKScene {
 
 extension GameScene: SKPhysicsContactDelegate {
   func didBegin(_ contact: SKPhysicsContact) {
-    // 1
     var firstBody: SKPhysicsBody
     var secondBody: SKPhysicsBody
     if contact.bodyA.categoryBitMask < contact.bodyB.categoryBitMask {
@@ -592,7 +575,6 @@ extension GameScene: SKPhysicsContactDelegate {
       secondBody = contact.bodyA
     }
    
-    // 2
     if ((firstBody.categoryBitMask & PhysicsCategory.monster != 0) &&
         (secondBody.categoryBitMask & PhysicsCategory.projectile != 0)) {
       if let monster = firstBody.node as? SKSpriteNode,
