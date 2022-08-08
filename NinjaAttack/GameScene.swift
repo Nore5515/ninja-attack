@@ -102,6 +102,7 @@ struct Enemy {
   var ranger: Bool
   var sightRadius: CGFloat
   var dangerCloseRadius: CGFloat
+  var hp: Int
 }
 
 struct EnemyNoti {
@@ -283,7 +284,7 @@ class GameScene: SKScene {
     let eNoti = EnemyNoti(enemyTarget: monster, distanceTo: distanceBetweenPoints(first: player.position, second: monster.position), cube: cube)
     
     // Creates an enemy object
-    var enemyObj = Enemy(enemyNoti: eNoti, leftFacing: false, ranger: false, sightRadius: -1, dangerCloseRadius: -1)
+    var enemyObj = Enemy(enemyNoti: eNoti, leftFacing: false, ranger: false, sightRadius: -1, dangerCloseRadius: -1, hp: 1)
    
     // Spawn 'rangers' 1 in 20 times, odds increasing over time.
     var rangerSpawn = random(min: 0.0, max: 20.0 + CGFloat(noRanged))
@@ -295,6 +296,7 @@ class GameScene: SKScene {
       enemyObj.ranger = true
       enemyObj.sightRadius = 200
       enemyObj.dangerCloseRadius = 10
+      enemyObj.hp = 3
       noRanged = 0
     }
     else{
@@ -475,31 +477,44 @@ class GameScene: SKScene {
   //
   func projectileDidCollideWithMonster(projectile: SKSpriteNode, monster: SKSpriteNode) {
     // print ("MONSTER COLLIDE")
+    var enemy : Enemy
     
-    // Increment kills and remove projectile.
-    kills += 1
-    projectile.removeFromParent()
-    
-    // If monster is within enemyArray...
-    let monsterIndex = getIndexOfMonster(monster: monster, list: enemyArray)
-    
-    // Remove it's cube and the monster itself.
-    if (monsterIndex >= 0){
-      print ("removing cube")
-      enemyArray[monsterIndex].enemyNoti.cube.removeFromParent();
-      enemyArray.remove(at: monsterIndex)
+    // Find respective enemy.
+    let enemyIndex = getIndexOfMonster(monster: monster, list: enemyArray)
+    if (enemyIndex >= 0){
+      enemy = enemyArray[enemyIndex]
     }
     else{
-      print("Monster not found")
+      print ("ERROR; ENEMY NOT FOUND")
+      return
     }
     
-    // Update enemy count label.
-    if let killsLabel = killsLabel {
-      killsLabel.text = String(enemyArray.count)
+    // Reduce enemy HP.
+    print (enemy.hp)
+    enemy.hp -= 1
+    print (enemy.hp)
+    
+    // Eliminate projectile.
+    projectile.removeFromParent()
+    
+    // If enemy is dead...
+    if (enemy.hp <= 0){
+      // Increment kills
+      kills += 1
+      
+      print ("Removing cube")
+      enemy.enemyNoti.cube.removeFromParent()
+      enemyArray.remove(at: enemyIndex)
+
+      // Update enemy count label.
+      if let killsLabel = killsLabel {
+        killsLabel.text = String(enemyArray.count)
+      }
+      
+      // Remove monster from scene.
+      monster.removeFromParent()
     }
     
-    // Remove monster from scene.
-    monster.removeFromParent()
   }
 
   //
